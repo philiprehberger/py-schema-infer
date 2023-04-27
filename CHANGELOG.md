@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 (2026-03-27)
+
+- Add `minimum` and `maximum` constraints for integer and number fields
+- Add `minLength` and `maxLength` constraints for string fields
+- Add `to_json_schema(samples)` wrapper that includes `$schema` URI for draft 2020-12
+- Add pytest and mypy configuration to pyproject.toml
+
 ## 0.1.4
 
 - Add Development section to README
