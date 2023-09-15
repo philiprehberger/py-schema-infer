@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-03-28)
+
+- Add `register_format(name, pattern)` for custom format detector registration (e.g., phone, credit card)
+- Add `strictness` parameter to `infer()` and `to_json_schema()` with `"loose"`, `"normal"`, and `"strict"` levels
+- Change `merge_schemas()` to accept variadic arguments for combining multiple schemas at once
+
 ## 0.2.0 (2026-03-27)
 
 - Add `minimum` and `maximum` constraints for integer and number fields
