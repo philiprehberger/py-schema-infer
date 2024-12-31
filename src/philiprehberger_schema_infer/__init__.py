@@ -8,9 +8,12 @@ from typing import Any, Literal
 __all__ = [
     "infer",
     "infer_type",
+    "infer_with_confidence",
     "merge_schemas",
     "register_format",
+    "to_dataclass",
     "to_json_schema",
+    "to_typescript",
 ]
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -137,6 +140,55 @@ def infer_type(value: Any) -> dict[str, Any]:
     return {}
 
 
+def infer_with_confidence(
+    samples: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Infer types from samples and return per-field confidence scores.
+
+    The confidence score for each field indicates how consistently a single
+    type was observed across samples.  A score of ``1.0`` means every sample
+    that contained the field had the same type; lower values indicate mixed
+    types.
+
+    Args:
+        samples: List of dictionaries to analyze.
+
+    Returns:
+        Dict mapping field names to ``{"type": ..., "confidence": float}``
+        where confidence is between 0.0 and 1.0.
+    """
+    if not samples:
+        return {}
+
+    all_keys: dict[str, list[Any]] = {}
+
+    for sample in samples:
+        for key, value in sample.items():
+            all_keys.setdefault(key, []).append(value)
+
+    result: dict[str, dict[str, Any]] = {}
+
+    for key, values in all_keys.items():
+        type_counts: dict[str, int] = {}
+        for v in values:
+            t = _python_type_to_schema_type(v)
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+        total = len(values)
+        dominant_type = max(type_counts, key=lambda k: type_counts[k])
+        confidence = type_counts[dominant_type] / total
+
+        schemas = [infer_type(v) for v in values]
+        merged = _merge_type_list(schemas)
+
+        result[key] = {
+            **merged,
+            "confidence": round(confidence, 2),
+        }
+
+    return result
+
+
 def merge_schemas(*schemas: dict[str, Any]) -> dict[str, Any]:
     """Merge one or more JSON Schemas into one that accepts values valid for any.
 
@@ -186,9 +238,68 @@ def to_json_schema(
     }
 
 
+def to_typescript(
+    samples: list[dict[str, Any]],
+    *,
+    name: str = "InferredType",
+    strictness: Strictness = "normal",
+) -> str:
+    """Generate a TypeScript interface from sample data.
+
+    Args:
+        samples: List of dictionaries to analyze.
+        name: Name for the generated interface.
+        strictness: Passed through to :func:`infer`.
+
+    Returns:
+        TypeScript interface definition as a string.
+    """
+    schema = infer(samples, strictness=strictness)
+    return _schema_to_typescript(schema, name)
+
+
+def to_dataclass(
+    samples: list[dict[str, Any]],
+    *,
+    name: str = "InferredModel",
+    strictness: Strictness = "normal",
+) -> str:
+    """Generate a Python dataclass from sample data.
+
+    Args:
+        samples: List of dictionaries to analyze.
+        name: Name for the generated dataclass.
+        strictness: Passed through to :func:`infer`.
+
+    Returns:
+        Python dataclass source code as a string.
+    """
+    schema = infer(samples, strictness=strictness)
+    return _schema_to_dataclass(schema, name)
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _python_type_to_schema_type(value: Any) -> str:
+    """Map a Python value to its JSON Schema type name."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return "unknown"
 
 
 def _infer_from_values(
@@ -328,3 +439,133 @@ def _detect_format(value: str) -> str | None:
     if _DATE_RE.match(value):
         return "date"
     return None
+
+
+# ---------------------------------------------------------------------------
+# TypeScript interface generation
+# ---------------------------------------------------------------------------
+
+
+def _json_schema_type_to_ts(prop_schema: dict[str, Any]) -> str:
+    """Convert a JSON Schema type descriptor to a TypeScript type string."""
+    if "anyOf" in prop_schema:
+        parts = [_json_schema_type_to_ts(s) for s in prop_schema["anyOf"]]
+        return " | ".join(parts)
+
+    schema_type = prop_schema.get("type", "any")
+
+    if schema_type == "string":
+        return "string"
+    if schema_type == "integer" or schema_type == "number":
+        return "number"
+    if schema_type == "boolean":
+        return "boolean"
+    if schema_type == "null":
+        return "null"
+    if schema_type == "array":
+        items = prop_schema.get("items", {})
+        item_type = _json_schema_type_to_ts(items) if items else "any"
+        return f"{item_type}[]"
+    if schema_type == "object":
+        props = prop_schema.get("properties", {})
+        if not props:
+            return "Record<string, unknown>"
+        inner_lines: list[str] = []
+        req = set(prop_schema.get("required", []))
+        for k in sorted(props):
+            ts_type = _json_schema_type_to_ts(props[k])
+            opt = "" if k in req else "?"
+            inner_lines.append(f"  {k}{opt}: {ts_type};")
+        return "{\n" + "\n".join(inner_lines) + "\n}"
+
+    return "any"
+
+
+def _schema_to_typescript(schema: dict[str, Any], name: str) -> str:
+    """Convert an inferred object schema to a TypeScript interface string."""
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+
+    lines: list[str] = [f"interface {name} {{"]
+    for key in sorted(properties):
+        ts_type = _json_schema_type_to_ts(properties[key])
+        opt = "" if key in required else "?"
+        lines.append(f"  {key}{opt}: {ts_type};")
+    lines.append("}")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Python dataclass generation
+# ---------------------------------------------------------------------------
+
+_SCHEMA_TYPE_TO_PYTHON: dict[str, str] = {
+    "string": "str",
+    "integer": "int",
+    "number": "float",
+    "boolean": "bool",
+    "null": "None",
+}
+
+
+def _json_schema_type_to_python(prop_schema: dict[str, Any]) -> str:
+    """Convert a JSON Schema type descriptor to a Python type annotation."""
+    if "anyOf" in prop_schema:
+        parts = [_json_schema_type_to_python(s) for s in prop_schema["anyOf"]]
+        return " | ".join(parts)
+
+    schema_type = prop_schema.get("type", "Any")
+
+    if schema_type in _SCHEMA_TYPE_TO_PYTHON:
+        return _SCHEMA_TYPE_TO_PYTHON[schema_type]
+
+    if schema_type == "array":
+        items = prop_schema.get("items", {})
+        item_type = _json_schema_type_to_python(items) if items else "Any"
+        return f"list[{item_type}]"
+
+    if schema_type == "object":
+        props = prop_schema.get("properties", {})
+        if not props:
+            return "dict[str, Any]"
+        return "dict[str, Any]"
+
+    return "Any"
+
+
+def _schema_to_dataclass(schema: dict[str, Any], name: str) -> str:
+    """Convert an inferred object schema to a Python dataclass string."""
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+
+    lines: list[str] = [
+        "from __future__ import annotations",
+        "",
+        "from dataclasses import dataclass",
+        "from typing import Any",
+        "",
+        "",
+        "@dataclass",
+        f"class {name}:",
+    ]
+
+    if not properties:
+        lines.append("    pass")
+        return "\n".join(lines)
+
+    # Required fields first (no default), then optional fields (default None)
+    required_fields: list[str] = []
+    optional_fields: list[str] = []
+
+    for key in sorted(properties):
+        py_type = _json_schema_type_to_python(properties[key])
+        if key in required:
+            required_fields.append(f"    {key}: {py_type}")
+        else:
+            optional_fields.append(f"    {key}: {py_type} | None = None")
+
+    lines.extend(required_fields)
+    lines.extend(optional_fields)
+
+    return "\n".join(lines)

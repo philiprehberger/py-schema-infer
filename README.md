@@ -14,8 +14,6 @@ pip install philiprehberger-schema-infer
 
 ## Usage
 
-### Infer schema from samples
-
 ```python
 from philiprehberger_schema_infer import infer
 
@@ -101,15 +99,78 @@ from philiprehberger_schema_infer import merge_schemas
 merged = merge_schemas(schema_a, schema_b, schema_c)
 ```
 
+### Confidence scores
+
+Analyze how consistently a type was observed across samples for each field:
+
+```python
+from philiprehberger_schema_infer import infer_with_confidence
+
+samples = [
+    {"name": "Alice", "value": 42},
+    {"name": "Bob", "value": "hello"},
+    {"name": "Carol", "value": 99},
+]
+
+result = infer_with_confidence(samples)
+# {
+#   "name": {"type": "string", "confidence": 1.0},
+#   "value": {"type": ..., "confidence": 0.67}
+# }
+```
+
+### TypeScript interface output
+
+Generate TypeScript interfaces from sample data:
+
+```python
+from philiprehberger_schema_infer import to_typescript
+
+samples = [
+    {"name": "Alice", "age": 30, "active": True},
+    {"name": "Bob", "age": 25},
+]
+
+print(to_typescript(samples, name="User"))
+# interface User {
+#   active?: boolean;
+#   age: number;
+#   name: string;
+# }
+```
+
+### Python dataclass output
+
+Generate Python dataclass definitions from sample data:
+
+```python
+from philiprehberger_schema_infer import to_dataclass
+
+samples = [
+    {"name": "Alice", "age": 30, "email": "alice@test.com"},
+    {"name": "Bob", "age": 25},
+]
+
+print(to_dataclass(samples, name="User"))
+# @dataclass
+# class User:
+#     age: int
+#     name: str
+#     email: str | None = None
+```
+
 ## API
 
-| Function | Description |
-|---|---|
+| Function / Class | Description |
+|------------------|-------------|
 | `infer(samples, *, strictness="normal")` | Infer JSON Schema from a list of dicts. Supports `"loose"`, `"normal"`, and `"strict"` levels. |
 | `infer_type(value)` | Infer schema type for a single value |
+| `infer_with_confidence(samples)` | Infer types with per-field confidence scores indicating type consistency |
 | `merge_schemas(*schemas)` | Merge two or more schemas into one accepting any of them |
 | `register_format(name, pattern)` | Register a custom regex pattern for string format detection |
+| `to_dataclass(samples, *, name, strictness)` | Generate a Python dataclass definition from sample data |
 | `to_json_schema(samples, *, strictness="normal")` | Wraps `infer()` output with `$schema` URI for draft 2020-12 |
+| `to_typescript(samples, *, name, strictness)` | Generate a TypeScript interface definition from sample data |
 
 ## Development
 

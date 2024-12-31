@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-schema-infer"
-version = "0.3.1"
+version = "0.4.0"
 description = "Infer JSON schemas from sample data"
 readme = "README.md"
 license = "MIT"
