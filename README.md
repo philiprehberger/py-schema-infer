@@ -1,5 +1,9 @@
 # philiprehberger-schema-infer
 
+[![Tests](https://github.com/philiprehberger/py-schema-infer/actions/workflows/publish.yml/badge.svg)](https://github.com/philiprehberger/py-schema-infer/actions/workflows/publish.yml)
+[![PyPI version](https://img.shields.io/pypi/v/philiprehberger-schema-infer.svg)](https://pypi.org/project/philiprehberger-schema-infer/)
+[![License](https://img.shields.io/github/license/philiprehberger/py-schema-infer)](LICENSE)
+
 Infer JSON schemas from sample data.
 
 ## Installation
