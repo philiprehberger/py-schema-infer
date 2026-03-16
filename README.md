@@ -48,6 +48,14 @@ merged = merge_schemas(schema_a, schema_b)
 - `infer_type(value)` — Infer type for a single value
 - `merge_schemas(a, b)` — Merge two schemas
 
+
+## Development
+
+```bash
+pip install -e .
+python -m pytest tests/ -v
+```
+
 ## License
 
 MIT
