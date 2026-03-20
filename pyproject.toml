@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philiprehberger-schema-infer"
-version = "0.1.4"
+version = "0.1.5"
 description = "Infer JSON schemas from sample data"
 readme = "README.md"
 license = "MIT"
@@ -31,3 +31,9 @@ Changelog = "https://github.com/philiprehberger/py-schema-infer/blob/main/CHANGE
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/philiprehberger_schema_infer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
