@@ -1,4 +1,8 @@
 # Changelog
+## 0.1.6
+
+- Convert API section to table format
+
 ## 0.1.5- Add pytest and mypy tool configuration to pyproject.toml
 
 ## 0.1.4

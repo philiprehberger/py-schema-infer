@@ -44,9 +44,11 @@ merged = merge_schemas(schema_a, schema_b)
 
 ## API
 
-- `infer(samples)` — Infer JSON Schema from list of dicts
-- `infer_type(value)` — Infer type for a single value
-- `merge_schemas(a, b)` — Merge two schemas
+| Function / Class | Description |
+|---|---|
+| `infer(samples)` | Infer JSON Schema from list of dicts |
+| `infer_type(value)` | Infer type for a single value |
+| `merge_schemas(a, b)` | Merge two schemas |
 
 
 ## Development
