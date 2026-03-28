@@ -10,6 +10,7 @@ __all__ = [
     "infer",
     "infer_type",
     "merge_schemas",
+    "to_json_schema",
 ]
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -121,8 +122,24 @@ def merge_schemas(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     if type_a == type_b:
         return dict(a)
 
-    # Different types → anyOf
+    # Different types -> anyOf
     return {"anyOf": [a, b]}
+
+
+def to_json_schema(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    """Infer a JSON Schema from samples and wrap with a ``$schema`` URI.
+
+    Args:
+        samples: List of dictionaries to analyze.
+
+    Returns:
+        Full JSON Schema document with ``$schema`` key.
+    """
+    schema = infer(samples)
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        **schema,
+    }
 
 
 def _infer_from_values(values: list[Any]) -> dict[str, Any]:
@@ -134,6 +151,21 @@ def _infer_from_values(values: list[Any]) -> dict[str, Any]:
         unique_values = set(values)
         if 2 <= len(unique_values) <= 10 and len(values) >= 3:
             merged["enum"] = sorted(unique_values)
+
+    # Track numeric constraints
+    if merged.get("type") in ("integer", "number"):
+        numeric_values = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if numeric_values:
+            merged["minimum"] = min(numeric_values)
+            merged["maximum"] = max(numeric_values)
+
+    # Track string length constraints
+    if merged.get("type") == "string":
+        string_values = [v for v in values if isinstance(v, str)]
+        if string_values:
+            lengths = [len(s) for s in string_values]
+            merged["minLength"] = min(lengths)
+            merged["maxLength"] = max(lengths)
 
     return merged
 
@@ -153,7 +185,7 @@ def _merge_type_list(schemas: list[dict[str, Any]]) -> dict[str, Any]:
     if len(types) == 1:
         return schemas[0]
 
-    # integer + number → number
+    # integer + number -> number
     if types == {"integer", "number"}:
         return {"type": "number"}
 
