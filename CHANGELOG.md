@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 (2026-04-01)
+
+- Add `infer_with_confidence(samples)` for per-field confidence scores indicating type consistency across samples
+- Add `to_typescript(samples, *, name, strictness)` to generate TypeScript interface definitions from sample data
+- Add `to_dataclass(samples, *, name, strictness)` to generate Python dataclass definitions from sample data
+- Add format detection for `date-time`, `email`, `uri`, `uuid`, and `date` patterns via `infer()` and `infer_type()`
+
 ## 0.3.1 (2026-03-31)
 
 - Standardize README to 3-badge format with emoji Support section
