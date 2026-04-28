@@ -139,6 +139,19 @@ print(to_typescript(samples, name="User"))
 # }
 ```
 
+### Inference from a `.jsonl` file
+
+Infer a schema directly from a JSON Lines file without loading it manually:
+
+```python
+from philiprehberger_schema_infer import infer_from_jsonl
+
+schema = infer_from_jsonl("events.jsonl")
+
+# Skip lines that aren't valid JSON objects instead of raising
+schema = infer_from_jsonl("events.jsonl", skip_invalid=True)
+```
+
 ### Python dataclass output
 
 Generate Python dataclass definitions from sample data:
@@ -164,6 +177,7 @@ print(to_dataclass(samples, name="User"))
 | Function / Class | Description |
 |------------------|-------------|
 | `infer(samples, *, strictness="normal")` | Infer JSON Schema from a list of dicts. Supports `"loose"`, `"normal"`, and `"strict"` levels. |
+| `infer_from_jsonl(path, *, strictness="normal", skip_invalid=False)` | Infer schema from a `.jsonl` file |
 | `infer_type(value)` | Infer schema type for a single value |
 | `infer_with_confidence(samples)` | Infer types with per-field confidence scores indicating type consistency |
 | `merge_schemas(*schemas)` | Merge two or more schemas into one accepting any of them |

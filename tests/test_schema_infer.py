@@ -1,5 +1,8 @@
+import pytest
+
 from philiprehberger_schema_infer import (
     infer,
+    infer_from_jsonl,
     infer_type,
     infer_with_confidence,
     merge_schemas,
@@ -515,3 +518,64 @@ def test_infer_detects_date_format_in_schema():
     ]
     schema = infer(samples)
     assert schema["properties"]["birthday"].get("format") == "date"
+
+
+def test_infer_from_jsonl_basic(tmp_path):
+    file = tmp_path / "data.jsonl"
+    file.write_text(
+        '{"name": "Alice", "age": 30}\n'
+        '{"name": "Bob", "age": 25}\n'
+    )
+    schema = infer_from_jsonl(file)
+    assert schema["type"] == "object"
+    assert "name" in schema["properties"]
+    assert "age" in schema["properties"]
+    assert schema["properties"]["age"]["type"] == "integer"
+
+
+def test_infer_from_jsonl_empty_file(tmp_path):
+    file = tmp_path / "empty.jsonl"
+    file.write_text("")
+    schema = infer_from_jsonl(file)
+    assert schema == {"type": "object", "properties": {}}
+
+
+def test_infer_from_jsonl_skips_blank_lines(tmp_path):
+    file = tmp_path / "blanks.jsonl"
+    file.write_text(
+        '{"x": 1}\n'
+        '\n'
+        '   \n'
+        '{"x": 2}\n'
+    )
+    schema = infer_from_jsonl(file)
+    assert schema["properties"]["x"]["type"] == "integer"
+
+
+def test_infer_from_jsonl_raises_on_invalid_line(tmp_path):
+    file = tmp_path / "bad.jsonl"
+    file.write_text(
+        '{"x": 1}\n'
+        'not json\n'
+    )
+    with pytest.raises(ValueError, match="line 2"):
+        infer_from_jsonl(file)
+
+
+def test_infer_from_jsonl_skip_invalid(tmp_path):
+    file = tmp_path / "mixed.jsonl"
+    file.write_text(
+        '{"x": 1}\n'
+        'not json\n'
+        '[1,2,3]\n'
+        '{"x": 2}\n'
+    )
+    schema = infer_from_jsonl(file, skip_invalid=True)
+    assert schema["properties"]["x"]["type"] == "integer"
+
+
+def test_infer_from_jsonl_rejects_non_object(tmp_path):
+    file = tmp_path / "list.jsonl"
+    file.write_text('[1,2,3]\n')
+    with pytest.raises(ValueError, match="not a JSON object"):
+        infer_from_jsonl(file)

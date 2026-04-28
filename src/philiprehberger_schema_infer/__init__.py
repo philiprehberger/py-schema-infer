@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any, Literal
 
 __all__ = [
     "infer",
+    "infer_from_jsonl",
     "infer_type",
     "infer_with_confidence",
     "merge_schemas",
@@ -99,6 +102,56 @@ def infer(
         schema["additionalProperties"] = False
 
     return schema
+
+
+def infer_from_jsonl(
+    path: str | Path,
+    *,
+    strictness: Strictness = "normal",
+    skip_invalid: bool = False,
+) -> dict[str, Any]:
+    """Infer a JSON Schema from a `.jsonl` file (one JSON object per line).
+
+    Lines are read and parsed lazily before being passed to :func:`infer`.
+
+    Args:
+        path: Path to the `.jsonl` file.
+        strictness: Same as :func:`infer`.
+        skip_invalid: If True, silently skip lines that fail to parse as JSON
+            objects. If False (default), raise ``ValueError`` on the first
+            offending line.
+
+    Returns:
+        JSON Schema (dict) inferred over all valid records.
+
+    Raises:
+        FileNotFoundError: If *path* does not exist.
+        ValueError: If a line is not valid JSON or not a JSON object and
+            *skip_invalid* is False.
+    """
+    file_path = Path(path)
+    samples: list[dict[str, Any]] = []
+
+    with file_path.open("r", encoding="utf-8") as fh:
+        for lineno, raw in enumerate(fh, start=1):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if skip_invalid:
+                    continue
+                raise ValueError(f"Invalid JSON on line {lineno} of {file_path}: {exc.msg}") from exc
+            if not isinstance(obj, dict):
+                if skip_invalid:
+                    continue
+                raise ValueError(
+                    f"Line {lineno} of {file_path} is not a JSON object (got {type(obj).__name__})"
+                )
+            samples.append(obj)
+
+    return infer(samples, strictness=strictness)
 
 
 def infer_type(value: Any) -> dict[str, Any]:

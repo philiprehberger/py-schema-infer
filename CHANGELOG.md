@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 (2026-04-27)
+
+- Add `infer_from_jsonl(path)` to infer schemas directly from a `.jsonl` file (one JSON object per line)
+- `infer_from_jsonl` accepts `skip_invalid=True` to silently skip malformed lines
+
 ## 0.4.0 (2026-04-01)
 
 - Add `infer_with_confidence(samples)` for per-field confidence scores indicating type consistency across samples
